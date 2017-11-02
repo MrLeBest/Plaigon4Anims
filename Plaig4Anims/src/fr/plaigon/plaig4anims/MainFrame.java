@@ -29,139 +29,165 @@
 
 package fr.plaigon.plaig4anims;
 
-import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
-import static org.lwjgl.opengl.GL11.GL_COMPILE;
-import static org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT;
-import static org.lwjgl.opengl.GL11.GL_FRONT_AND_BACK;
-import static org.lwjgl.opengl.GL11.GL_LINE;
-import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
-import static org.lwjgl.opengl.GL11.glBegin;
-import static org.lwjgl.opengl.GL11.glCallList;
-import static org.lwjgl.opengl.GL11.glClear;
-import static org.lwjgl.opengl.GL11.glDeleteLists;
-import static org.lwjgl.opengl.GL11.glEnd;
-import static org.lwjgl.opengl.GL11.glEndList;
-import static org.lwjgl.opengl.GL11.glGenLists;
-import static org.lwjgl.opengl.GL11.glLoadIdentity;
-import static org.lwjgl.opengl.GL11.glNewList;
-import static org.lwjgl.opengl.GL11.glNormal3f;
-import static org.lwjgl.opengl.GL11.glPolygonMode;
-import static org.lwjgl.opengl.GL11.glVertex3f;
-
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import static org.lwjgl.opengl.GL11.*;
 
 import org.lwjgl.LWJGLException;
+import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.DisplayMode;
+import org.lwjgl.util.glu.GLU;
 import org.lwjgl.util.vector.Vector3f;
+
+import GLLoader.GLModel;
 
 /**
  * Loads the Stanford bunny .obj file and draws it.
  *
  * @author Oskar Veerhoek
  */
-public class MainFrame {
+public class MainFrame
+{
+	private static final String MODEL_LOCATION = "res/3d models/sakon.obj";
+	private static GLModel sakonModel;
+	
+	private static Vector3f rotation = new Vector3f();
+	private static Vector3f location = new Vector3f();
+	
+	public static void main(String[] args)
+	{		
+		setUpDisplay();
+		
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity();
+		GLU.gluPerspective(30f, (float) (640 / 480), 0.3f, 100f);
+		glMatrixMode(GL_MODELVIEW);
+		glEnable(GL_DEPTH_TEST);
+		
+		
+		while (!Display.isCloseRequested())
+		{
+			render();
+			checkInput();
+			Display.update();
+			Display.sync(60);
+		}
+		System.exit(0);
+	}
 
-    private static Camera camera;
-    private static int sakonDisplayListID;
+	private static void setUpDisplay()
+	{
+		try
+		{
+			Display.setDisplayMode(new DisplayMode(640, 480));
+			Display.setVSyncEnabled(true);
+			Display.setResizable(true);
+			Display.setTitle("Happy Easter!");
+			Display.create();
+		}
+		catch (LWJGLException e)
+		{
+			System.err.println("The display wasn't initialized correctly. :(");
+			Display.destroy();
+			System.exit(1);
+		}
+	}
+	
+	private static void render()
+	{
+		if(sakonModel == null)
+			sakonModel = new GLModel(MODEL_LOCATION);
+		
+		glPushMatrix();
+			glEnable(GL_CULL_FACE);
+		    glCullFace(GL_BACK);
+			glEnable(GL_DEPTH_TEST);
+        	glEnable(GL_ALPHA_TEST);
+//        	glAlphaFunc(GL_GREATER, 0.5F);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			glColor3f(1f, 1f, 1f);
+			
+			glEnable(GL_TEXTURE_2D);                     
 
-    private static final String MODEL_LOCATION = "sakon.obj";
-
-    public static void main(String[] args) {
-        setUpDisplay();
-        setUpDisplayLists();
-        setUpCamera();
-        while (!Display.isCloseRequested()) {
-            render();
-            checkInput();
-            Display.update();
-            Display.sync(60);
-        }
-        cleanUp();
-        System.exit(0);
-    }
-
-    private static void setUpDisplayLists() {
-        sakonDisplayListID = glGenLists(1);
-        glNewList(sakonDisplayListID, GL_COMPILE);
-        {
-            Model m = null;
-            try {
-                m = OBJLoader.loadModel(new File(MODEL_LOCATION));
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-                Display.destroy();
-                System.exit(1);
-            } catch (IOException e) {
-                e.printStackTrace();
-                Display.destroy();
-                System.exit(1);
-            }
-            glBegin(GL_TRIANGLES);
-            for (Face face : m.faces)
-            {
-                Vector3f n1 = m.normals.get((int)face.normal.x- 1);
-                glNormal3f(n1.x, n1.y, n1.z);
-                Vector3f v1 = m.vertices.get((int)face.vertex.x - 1);
-                glVertex3f(v1.x, v1.y, v1.z);
-                Vector3f n2 = m.normals.get((int)face.normal.y - 1);
-                glNormal3f(n2.x, n2.y, n2.z);
-                Vector3f v2 = m.vertices.get((int)face.vertex.y - 1);
-                glVertex3f(v2.x, v2.y, v2.z);
-                Vector3f n3 = m.normals.get((int)face.normal.z - 1);
-                glNormal3f(n3.x, n3.y, n3.z);
-                Vector3f v3 = m.vertices.get((int)face.vertex.z - 1);
-                glVertex3f(v3.x, v3.y, v3.z);
-            }
-            glEnd();
-        }
-        glEndList();
-    }
-
-    private static void checkInput() {
-        camera.processMouse(1, 80, -80);
-        camera.processKeyboard(16, 50, 50, 50);
-        if (Mouse.isButtonDown(0)) {
-            Mouse.setGrabbed(true);
-        } else if (Mouse.isButtonDown(1)) {
-            Mouse.setGrabbed(false);
-        }
-    }
-
-    private static void cleanUp() {
-        glDeleteLists(sakonDisplayListID, 1);
-        Display.destroy();
-    }
-
-    private static void render() {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glLoadIdentity();
-        camera.applyTranslations();
-//        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        glCallList(sakonDisplayListID);
-    }
-
-    private static void setUpCamera()
-    {
-        camera = new EulerCamera.Builder().setAspectRatio((float) Display.getWidth() / Display.getHeight())
-                .setRotation(-1.12f, 0.16f, 0f).setPosition(-1.38f, 1.36f, 7.95f).setFieldOfView(60).build();
-        camera.applyOptimalStates();
-        camera.applyPerspectiveMatrix();
-    }
-
-    private static void setUpDisplay() {
-        try {
-            Display.setDisplayMode(new DisplayMode(640, 480));
-            Display.setVSyncEnabled(true);
-            Display.setTitle("Happy Easter!");
-            Display.create();
-        } catch (LWJGLException e) {
-            System.err.println("The display wasn't initialized correctly. :(");
-            Display.destroy();
-            System.exit(1);
-        }
-    }
+//		    glShadeModel(GL_SMOOTH);
+//		    glDepthFunc(GL_LESS);
+//		    glDepthMask(true);
+//		    glEnable(GL_NORMALIZE); 
+		    //enable lighting
+//		    glEnable(GL_LIGHTING);
+			
+			glRotatef(rotation.x, 1, 0, 0);
+			glRotatef(rotation.y, 0, 1, 0);
+			glRotatef(rotation.z, 0, 0, 1);
+			glTranslatef(location.x, location.y, location.z);
+	//		 glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			sakonModel.render();
+		glPopMatrix();
+	}
+	
+	private static void checkInput() 
+	{
+		boolean up = Keyboard.isKeyDown(Keyboard.KEY_W);
+		boolean down = Keyboard.isKeyDown(Keyboard.KEY_S);
+		boolean left = Keyboard.isKeyDown(Keyboard.KEY_A);
+		boolean right = Keyboard.isKeyDown(Keyboard.KEY_D);
+		boolean flyUp = Keyboard.isKeyDown(Keyboard.KEY_E);
+		boolean flyDown = Keyboard.isKeyDown(Keyboard.KEY_Q);
+		boolean speedUp = Keyboard.isKeyDown(Keyboard.KEY_LSHIFT);
+		boolean slowDown = Keyboard.isKeyDown(Keyboard.KEY_LCONTROL);
+		float walkSpeed = 0.15F;
+		
+		float mx = Mouse.getDX();
+		float my = Mouse.getDY();
+		mx *= 0.25F;
+		my *= 0.25F;
+		rotation.y += mx;
+		if(rotation.y > 360)
+			rotation.y -= 360;
+		
+		rotation.x -= my;
+		if(rotation.x > 85)
+			rotation.x = 85;
+		if(rotation.x < -85)
+			rotation.x = -85;
+		
+		if(speedUp && !slowDown)
+			walkSpeed = 0.25F;
+		if(slowDown && !speedUp)
+			walkSpeed = 0.10F;
+		
+		if(up && !down)
+		{
+			float cz  = (float) (walkSpeed * 2 * Math.cos(Math.toRadians(rotation.y)));
+			float cx  = (float) (walkSpeed * Math.sin(Math.toRadians(rotation.y)));
+			location.z += cz;
+			location.x -= cx;
+		}
+		if(down && !up)
+		{
+			float cz  = (float) (walkSpeed * 2 * Math.cos(Math.toRadians(rotation.y)));
+			float cx  = (float) (walkSpeed * Math.sin(Math.toRadians(rotation.y)));
+			location.z -= cz;
+			location.x += cx;
+		}
+		if(right && !left)
+		{
+			float cz  = (float) (walkSpeed * 2 * Math.cos(Math.toRadians(rotation.y + 90)));
+			float cx  = (float) (walkSpeed * Math.sin(Math.toRadians(rotation.y)));
+			location.z += cz;
+			location.x -= cx;
+		}
+		if(left && !right)
+		{
+			float cz  = (float) (walkSpeed * 2 * Math.cos(Math.toRadians(rotation.y + 90)));
+			float cx  = (float) (walkSpeed * Math.sin(Math.toRadians(rotation.y)));
+			location.z -= cz;
+			location.x += cx;
+		}
+		
+		if(flyUp && !flyDown)
+			location.y -= walkSpeed;
+		if(flyDown && !flyUp)
+			location.y += walkSpeed;
+	}
 }
